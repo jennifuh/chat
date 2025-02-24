@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAT.</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #2a2a2a;
+            border-radius: 5px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .message.user {
+            background-color: #4a4a4a;
+            margin-left: auto;
+            color: #fff;
+        }
+        .username {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        .input-area {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background-color: #333;
+            color: #fff;
+            outline: none;
+        }
+        .send-button {
+            padding: 10px 20px;
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .login-container {
+            text-align: center;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 5px;
+        }
+        .username-input {
+            padding: 10px;
+            width: 60%;
+            margin-bottom: 10px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background-color: #333;
+            color: #fff;
+            outline: none;
+        }
+        .anonymous-checkbox {
+            margin: 10px 0;
+        }
+        .join-button {
+            padding: 10px 20px;
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>CHAT.</h1>
+            <p>please enter the chat and decide if you would like to be yourself or be anonymous.</p>
+        </div>
+        
+        <!-- Login Screen (shown first) -->
+        <div id="login-screen" class="login-container">
+            <h2>Enter the Chat</h2>
+            <input type="text" id="username-input" class="username-input" placeholder="Enter your username">
+            <div class="anonymous-checkbox">
+                <input type="checkbox" id="anonymous-checkbox">
+                <label for="anonymous-checkbox">Stay Anonymous</label>
+            </div>
+            <button id="join-button" class="join-button">Join Chat</button>
+        </div>
+        
+        <!-- Chat Screen (hidden initially) -->
+        <div id="chat-screen" style="display: none;">
+            <div id="chat-container" class="chat-container"></div>
+            <div class="input-area">
+                <input type="text" id="message-input" class="message-input" placeholder="Type your message...">
+                <button id="send-button" class="send-button">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const loginScreen = document.getElementById('login-screen');
+            const chatScreen = document.getElementById('chat-screen');
+            const usernameInput = document.getElementById('username-input');
+            const anonymousCheckbox = document.getElementById('anonymous-checkbox');
+            const joinButton = document.getElementById('join-button');
+            const chatContainer = document.getElementById('chat-container');
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+            
+            let username = '';
+            let isAnonymous = false;
+            
+            // For a real implementation, you'd connect to a server
+            // This demo version simulates messages locally
+            
+            // Join chat button click
+            joinButton.addEventListener('click', function() {
+                username = usernameInput.value.trim();
+                isAnonymous = anonymousCheckbox.checked;
+                
+                if (!username) {
+                    alert('Please enter a username');
+                    return;
+                }
+                
+                if (isAnonymous) {
+                    username = "Anonymous" + Math.floor(Math.random() * 1000);
+                }
+                
+                // Hide login screen, show chat screen
+                loginScreen.style.display = 'none';
+                chatScreen.style.display = 'block';
+                
+                // Add welcome message
+                addMessage('System', `Welcome to the chat, ${username}!`, false);
+            });
+            
+            // Send message button click
+            sendButton.addEventListener('click', sendMessage);
+            
+            // Enter key to send message
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            function sendMessage() {
+                const message = messageInput.value.trim();
+                if (message) {
+                    addMessage(username, message, true);
+                    messageInput.value = '';
+                    
+                    // In a real app, you'd emit this to the server here
+                    
+                    // Simulate receiving messages (for demo)
+                    simulateMessages();
+                }
+            }
+            
+            function addMessage(user, message, isUser = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = isUser ? 'message user' : 'message';
+                
+                const usernameDiv = document.createElement('div');
+                usernameDiv.className = 'username';
+                usernameDiv.textContent = user;
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.textContent = message;
+                
+                messageDiv.appendChild(usernameDiv);
+                messageDiv.appendChild(contentDiv);
+                
+                chatContainer.appendChild(messageDiv);
+                
+                // Auto scroll to bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            // For demo purposes only - simulates audience messages
+            function simulateMessages() {
+                const responses = [
+                    { user: "ComedyFan42", message: "This show is hilarious! 😂" },
+                    { user: "Anonymous123", message: "I'm dying over here!" },
+                    { user: "FrontRowSeat", message: "Do the impression again!" },
+                    { user: "Anonymous999", message: "Best comedy show this year" },
+                    { user: "LaughTrack", message: "My sides hurt from laughing" }
+                ];
+                
+                // Random delay before showing a sample message
+                if (Math.random() > 0.3) {
+                    setTimeout(() => {
+                        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                        addMessage(randomResponse.user, randomResponse.message, false);
+                    }, 2000 + Math.random() * 3000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
