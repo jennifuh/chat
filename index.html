@@ -96,6 +96,20 @@
             cursor: pointer;
             margin-top: 10px;
         }
+        .timestamp {
+            font-size: 0.75em;
+            color: #888;
+            margin-top: 3px;
+        }
+        .user-count {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #ff6b6b;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -104,6 +118,9 @@
             <h1>CHAT.</h1>
             <p>please enter the chat and decide if you would like to be yourself or be anonymous.</p>
         </div>
+        
+        <!-- User count display -->
+        <div id="user-count" class="user-count">Users: 0</div>
         
         <!-- Login Screen (shown first) -->
         <div id="login-screen" class="login-container">
@@ -126,109 +143,164 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- Firebase Database -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // DOM elements
-            const loginScreen = document.getElementById('login-screen');
-            const chatScreen = document.getElementById('chat-screen');
-            const usernameInput = document.getElementById('username-input');
-            const anonymousCheckbox = document.getElementById('anonymous-checkbox');
-            const joinButton = document.getElementById('join-button');
-            const chatContainer = document.getElementById('chat-container');
-            const messageInput = document.getElementById('message-input');
-            const sendButton = document.getElementById('send-button');
+        // REPLACE THIS WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4NAW8JTKzscaInyZ8sqlJsCN1bBHhkp8",
+            authDomain: "chat-chatroom.firebaseapp.com",
+            projectId: "chat-chatroom",
+            storageBucket: "chat-chatroom.firebasestorage.app",
+            messagingSenderId: "442496182434",
+            appId: "1:442496182434:web:e68d7f54a74b8213768ffb"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const messagesCollection = db.collection('messages');
+        const usersCollection = db.collection('users');
+        const presenceRef = firebase.database().ref('presence');
+        
+        // DOM elements
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const usernameInput = document.getElementById('username-input');
+        const anonymousCheckbox = document.getElementById('anonymous-checkbox');
+        const joinButton = document.getElementById('join-button');
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const userCountDisplay = document.getElementById('user-count');
+        
+        let username = '';
+        let userId = '';
+        let isAnonymous = false;
+        
+        // Join chat button click
+        joinButton.addEventListener('click', function() {
+            username = usernameInput.value.trim();
+            isAnonymous = anonymousCheckbox.checked;
             
-            let username = '';
-            let isAnonymous = false;
-            
-            // For a real implementation, you'd connect to a server
-            // This demo version simulates messages locally
-            
-            // Join chat button click
-            joinButton.addEventListener('click', function() {
-                username = usernameInput.value.trim();
-                isAnonymous = anonymousCheckbox.checked;
-                
-                if (!username) {
-                    alert('Please enter a username');
-                    return;
-                }
-                
-                if (isAnonymous) {
-                    username = "Anonymous" + Math.floor(Math.random() * 1000);
-                }
-                
-                // Hide login screen, show chat screen
-                loginScreen.style.display = 'none';
-                chatScreen.style.display = 'block';
-                
-                // Add welcome message
-                addMessage('System', `Welcome to the chat, ${username}!`, false);
-            });
-            
-            // Send message button click
-            sendButton.addEventListener('click', sendMessage);
-            
-            // Enter key to send message
-            messageInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    sendMessage();
-                }
-            });
-            
-            function sendMessage() {
-                const message = messageInput.value.trim();
-                if (message) {
-                    addMessage(username, message, true);
-                    messageInput.value = '';
-                    
-                    // In a real app, you'd emit this to the server here
-                    
-                    // Simulate receiving messages (for demo)
-                    simulateMessages();
-                }
+            if (!username) {
+                alert('Please enter a username');
+                return;
             }
             
-            function addMessage(user, message, isUser = false) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = isUser ? 'message user' : 'message';
-                
-                const usernameDiv = document.createElement('div');
-                usernameDiv.className = 'username';
-                usernameDiv.textContent = user;
-                
-                const contentDiv = document.createElement('div');
-                contentDiv.textContent = message;
-                
-                messageDiv.appendChild(usernameDiv);
-                messageDiv.appendChild(contentDiv);
-                
-                chatContainer.appendChild(messageDiv);
-                
-                // Auto scroll to bottom
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+            if (isAnonymous) {
+                username = "Anonymous" + Math.floor(Math.random() * 1000);
             }
             
-            // For demo purposes only - simulates audience messages
-            function simulateMessages() {
-                const responses = [
-                    { user: "ComedyFan42", message: "This show is hilarious! 😂" },
-                    { user: "Anonymous123", message: "I'm dying over here!" },
-                    { user: "FrontRowSeat", message: "Do the impression again!" },
-                    { user: "Anonymous999", message: "Best comedy show this year" },
-                    { user: "LaughTrack", message: "My sides hurt from laughing" }
-                ];
-                
-                // Random delay before showing a sample message
-                if (Math.random() > 0.3) {
-                    setTimeout(() => {
-                        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-                        addMessage(randomResponse.user, randomResponse.message, false);
-                    }, 2000 + Math.random() * 3000);
-                }
+            // Generate a unique ID for this user
+            userId = 'user_' + Date.now();
+            
+            // Add user to the users collection
+            usersCollection.doc(userId).set({
+                username: username,
+                isAnonymous: isAnonymous,
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Set user presence
+            const myPresenceRef = presenceRef.child(userId);
+            myPresenceRef.set(true);
+            myPresenceRef.onDisconnect().remove();
+            
+            // Add system message for new user
+            messagesCollection.add({
+                user: 'System',
+                message: `${username} has joined the chat`,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                isSystem: true
+            });
+            
+            // Hide login screen, show chat screen
+            loginScreen.style.display = 'none';
+            chatScreen.style.display = 'block';
+            
+            // Focus on message input
+            messageInput.focus();
+        });
+        
+        // Send message button click
+        sendButton.addEventListener('click', sendMessage);
+        
+        // Enter key to send message
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
             }
         });
+        
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                // Add message to Firestore
+                messagesCollection.add({
+                    user: username,
+                    userId: userId,
+                    message: message,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    isSystem: false
+                });
+                
+                messageInput.value = '';
+            }
+        }
+        
+        // Listen for new messages
+        messagesCollection.orderBy('timestamp', 'asc').onSnapshot(snapshot => {
+            snapshot.docChanges().forEach(change => {
+                if (change.type === 'added') {
+                    const data = change.doc.data();
+                    displayMessage(data.user, data.message, data.userId === userId, data.timestamp);
+                }
+            });
+        });
+        
+        // Listen for user presence updates
+        presenceRef.on('value', snapshot => {
+            const count = snapshot.numChildren();
+            userCountDisplay.textContent = `Users: ${count}`;
+        });
+        
+        function displayMessage(user, message, isCurrentUser, timestamp) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = isCurrentUser ? 'message user' : 'message';
+            
+            const usernameDiv = document.createElement('div');
+            usernameDiv.className = 'username';
+            usernameDiv.textContent = user;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.textContent = message;
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'timestamp';
+            if (timestamp) {
+                const date = timestamp.toDate();
+                timeDiv.textContent = date.toLocaleTimeString();
+            } else {
+                timeDiv.textContent = new Date().toLocaleTimeString();
+            }
+            
+            messageDiv.appendChild(usernameDiv);
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timeDiv);
+            
+            chatContainer.appendChild(messageDiv);
+            
+            // Auto scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
     </script>
 </body>
 </html>
