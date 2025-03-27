@@ -153,7 +153,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
     <script>
-        // REPLACE THIS WITH YOUR FIREBASE CONFIG
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyA4NAW8JTKzscaInyZ8sqlJsCN1bBHhkp8",
             authDomain: "chat-chatroom.firebaseapp.com",
@@ -166,6 +166,7 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
         const messagesCollection = db.collection('messages');
         const usersCollection = db.collection('users');
         const presenceRef = firebase.database().ref('presence');
@@ -185,49 +186,94 @@
         let userId = '';
         let isAnonymous = false;
         
+        // Anonymous sign-in function
+        function signInAnonymously() {
+            return auth.signInAnonymously()
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    return user;
+                })
+                .catch((error) => {
+                    console.error("Anonymous sign-in error:", error);
+                    alert("Failed to sign in anonymously");
+                    throw error;
+                });
+        }
+        
         // Join chat button click
         joinButton.addEventListener('click', function() {
             username = usernameInput.value.trim();
             isAnonymous = anonymousCheckbox.checked;
             
-            if (!username) {
+            if (!username && !isAnonymous) {
                 alert('Please enter a username');
                 return;
             }
             
             if (isAnonymous) {
                 username = "Anonymous" + Math.floor(Math.random() * 1000);
+                
+                signInAnonymously().then((user) => {
+                    userId = user.uid;
+                    
+                    // Add user to the users collection
+                    usersCollection.doc(userId).set({
+                        username: username,
+                        isAnonymous: true,
+                        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    // Set user presence
+                    const myPresenceRef = presenceRef.child(userId);
+                    myPresenceRef.set(true);
+                    myPresenceRef.onDisconnect().remove();
+                    
+                    // Add system message for new user
+                    messagesCollection.add({
+                        user: 'System',
+                        message: `${username} has joined the chat`,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        isSystem: true
+                    });
+                    
+                    // Hide login screen, show chat screen
+                    loginScreen.style.display = 'none';
+                    chatScreen.style.display = 'block';
+                    
+                    // Focus on message input
+                    messageInput.focus();
+                });
+            } else {
+                // Non-anonymous user logic
+                userId = 'user_' + Date.now();
+                
+                // Add user to the users collection
+                usersCollection.doc(userId).set({
+                    username: username,
+                    isAnonymous: false,
+                    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Set user presence
+                const myPresenceRef = presenceRef.child(userId);
+                myPresenceRef.set(true);
+                myPresenceRef.onDisconnect().remove();
+                
+                // Add system message for new user
+                messagesCollection.add({
+                    user: 'System',
+                    message: `${username} has joined the chat`,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    isSystem: true
+                });
+                
+                // Hide login screen, show chat screen
+                loginScreen.style.display = 'none';
+                chatScreen.style.display = 'block';
+                
+                // Focus on message input
+                messageInput.focus();
             }
-            
-            // Generate a unique ID for this user
-            userId = 'user_' + Date.now();
-            
-            // Add user to the users collection
-            usersCollection.doc(userId).set({
-                username: username,
-                isAnonymous: isAnonymous,
-                joinedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            // Set user presence
-            const myPresenceRef = presenceRef.child(userId);
-            myPresenceRef.set(true);
-            myPresenceRef.onDisconnect().remove();
-            
-            // Add system message for new user
-            messagesCollection.add({
-                user: 'System',
-                message: `${username} has joined the chat`,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                isSystem: true
-            });
-            
-            // Hide login screen, show chat screen
-            loginScreen.style.display = 'none';
-            chatScreen.style.display = 'block';
-            
-            // Focus on message input
-            messageInput.focus();
         });
         
         // Send message button click
